@@ -1,5 +1,6 @@
 'use strict';
 const S=window.SAE,N=S.n,Dd=S.dict,C={},U=S.num.usuarios,LA=S.num.latitud,LO=S.num.longitud,$=s=>document.querySelector(s);
+document.head.insertAdjacentHTML('beforeend','<style>#fmap{height:420px;border-radius:12px;border:1px solid var(--line);z-index:0}.tl td,.tl th{text-align:left}.lbl{font:600 11px Inter,sans-serif;padding:2px 6px;border-radius:6px}.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}tr[data-f]:hover td{background:rgba(245,158,11,.18)}</style>');
 const rev={};[...S.A].forEach((ch,k)=>rev[ch]=k);
 for(const c in S.str){const s=S.str[c],a=new Uint8Array(N);for(let i=0;i<N;i++)a[i]=rev[s[i]];C[c]=a}
 for(const c in S.int)C[c]=Uint32Array.from(S.int[c]);
@@ -79,12 +80,15 @@ const gk=i=>G.by==='all'?0:G.by==='distrito'?C.distrito[i]+'|'+C.provincia[i]+'|
 const sameGrp=(i,k)=>gk(i)==k;
 /* ---------- fichas ---------- */
 let QS='',fmap,flay,fhl,FM=[];const gm=i=>LA[i]<-0.5&&LA[i]>-19&&LO[i]<-68&&LO[i]>-82;
-T.fic=()=>{if(fmap){fmap.remove();fmap=null}return`<div class=card><h3>Mapa de instituciones educativas<small>Clic en un punto para abrir su ficha</small></h3><div id=fmap></div></div><div class=card><h3>Fichas por institución educativa</h3><input id=q placeholder="Buscar por nombre, código modular o código local…" value="${QS}" autocomplete=off><div id=fres style="margin-top:12px"></div></div>`};
+T.fic=()=>{if(fmap){fmap.remove();fmap=null}return`<div class=card><h3>Mapa de instituciones educativas<small>Clic en un punto para abrir su ficha</small></h3><div id=fmap style="height:420px"></div></div><div class=card><h3>Fichas por institución educativa</h3><input id=q placeholder="Buscar por nombre, código modular o código local…" value="${QS}" autocomplete=off><div id=fres style="margin-top:12px"></div></div>`};
 function fres(){const q=QS.trim().toLowerCase(),a=[];for(const i of ix(0)){if(!q||v('nombre_ie',i).toLowerCase().includes(q)||v('cod_modular',i).includes(q)||v('cod_local',i).includes(q)){a.push(i);if(a.length>=4000)break}}FM=a;
- $('#fres').innerHTML=`<div class=tw><table><thead><tr><th>Cód. modular</th><th>Institución</th><th>Nivel</th><th>Distrito</th><th>Usuarios</th><th>Ficha 2025</th></tr></thead><tbody>${a.slice(0,60).map(i=>`<tr data-f=${i}><td>${v('cod_modular',i)}</td><td>${v('nombre_ie',i)}</td><td>${v('nivel',i)}</td><td>${v('distrito',i)}</td><td>${U[i]}</td><td>${hasF(i)?'<span class="pill ok">Sí</span>':'<span class="pill no">No</span>'}</td></tr>`).join('')}</tbody></table></div><p class=meta>${a.length>60?'Tabla: primeros 60 de '+(a.length>=4000?'4 000+':fmt(a.length))+' resultados. ':fmt(a.length)+' resultado(s). '}El mapa muestra hasta 4 000 puntos; afine la búsqueda para ver menos.</p>`;drawF()}
-function drawF(){if(!window.L)return setTimeout(drawF,300);if(!fmap){const o=newMap('fmap');fmap=o.m;flay=o.l;fhl=L.layerGroup().addTo(fmap)}
- flay.clearLayers();const ps=FM.filter(gm);ps.forEach(i=>L.circleMarker([LA[i],LO[i]],{radius:5,color:hasF(i)?'#059669':'#e11d48',weight:1,fillOpacity:.75}).bindTooltip(v('nombre_ie',i)+' · '+U[i]+' usuarios').on('click',()=>ficha(i)).addTo(flay));
- if(ps.length)fmap.fitBounds(L.latLngBounds(ps.map(i=>[LA[i],LO[i]])),{padding:[25,25],maxZoom:15});setTimeout(()=>fmap.invalidateSize(),50)}
+ $('#fres').innerHTML=`<div class=tw><table class=tl><thead><tr><th>Cód. modular</th><th>Institución</th><th>Nivel</th><th>Distrito</th><th>Usuarios</th><th>Ficha 2025</th></tr></thead><tbody>${a.slice(0,60).map(i=>`<tr data-f=${i}><td>${v('cod_modular',i)}</td><td>${v('nombre_ie',i)}</td><td>${v('nivel',i)}</td><td>${v('distrito',i)}</td><td>${U[i]}</td><td>${hasF(i)?'<span class="pill ok">Sí</span>':'<span class="pill no">No</span>'}</td></tr>`).join('')}</tbody></table></div><p class=meta>${a.length>60?'Tabla: primeros 60 de '+(a.length>=4000?'4 000+':fmt(a.length))+' resultados. ':fmt(a.length)+' resultado(s). '}El mapa muestra hasta 4 000 puntos; afine la búsqueda para ver menos.</p>`;drawF()}
+const MK=new Map();
+function lbls(){if(!fmap)return;const z=fmap.getZoom(),bd=fmap.getBounds();let n=0;flay.eachLayer(l=>{l.unbindTooltip();const inb=z>=14&&n<120&&bd.contains(l.getLatLng());if(inb)n++;l.bindTooltip(l._nm,{permanent:inb,direction:'top',offset:[0,-4],className:'lbl'})})}
+function drawF(){if(!window.L)return setTimeout(drawF,300);if(!fmap){const o=newMap('fmap');fmap=o.m;flay=o.l;fhl=L.layerGroup().addTo(fmap);fmap.on('moveend zoomend',lbls)}
+ flay.clearLayers();MK.clear();fhl.clearLayers();const ps=FM.filter(gm);ps.forEach(i=>{const k=L.circleMarker([LA[i],LO[i]],{radius:6,color:hasF(i)?'#059669':'#e11d48',weight:1.5,fillOpacity:.8});k._nm=v('nombre_ie',i)+' · '+v('nivel',i)+' · '+U[i]+' usuarios';k.on('click',()=>{ficha(i);focusF(i)}).on('mouseover',()=>k.setStyle({radius:9,weight:3})).on('mouseout',()=>k.setStyle({radius:6,weight:1.5})).addTo(flay);MK.set(i,k)});
+ if(ps.length)fmap.fitBounds(L.latLngBounds(ps.map(i=>[LA[i],LO[i]])),{padding:[25,25],maxZoom:16});setTimeout(()=>{fmap.invalidateSize();lbls()},80)}
+function focusF(i,pulse){if(!fmap||!gm(i))return;fhl.clearLayers();L.circleMarker([LA[i],LO[i]],{radius:15,color:'#f59e0b',weight:3,fillOpacity:.25}).addTo(fhl);if(!pulse)fmap.setView([LA[i],LO[i]],Math.max(fmap.getZoom(),16))}
 let ghl;function verMapa(i){const f=tab==='fic',m=f?fmap:map;if(!m||!gm(i))return;if(innerWidth<900)$('#ficha').hidden=true;m.invalidateSize();let hl=f?fhl:(ghl=ghl&&m.hasLayer(ghl)?ghl:L.layerGroup().addTo(m));hl.clearLayers();
  const h=L.circleMarker([LA[i],LO[i]],{radius:14,color:'#f59e0b',weight:3,fillOpacity:.25}).bindPopup('<b>'+v('nombre_ie',i)+'</b>').addTo(hl);m.setView([LA[i],LO[i]],17);h.openPopup();$(f?'#fmap':'#map').scrollIntoView({behavior:'smooth',block:'center'})}
 let byIE;
@@ -111,7 +115,8 @@ $('#reset').onclick=()=>{FIL.forEach(([c])=>sel[c]=-1);sel.periodo_sae=Dd.period
 $('#tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;tab=b.dataset.t;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));render();scrollTo(0,0)};
 $('#theme').onclick=()=>{const d=document.documentElement;d.dataset.theme=(d.dataset.theme||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))==='dark'?'light':'dark'};
 $('#out').onclick=e=>{const m=e.target.closest('[data-mat]');if(m){MAT=m.dataset.mat;return render()}const r=e.target.closest('tr[data-k]'),f=e.target.closest('tr[data-f]');
- if(f)return ficha(+f.dataset.f);if(!r)return;const[t,k]=r.dataset.k.split(':');if(t==='ut'){sel.unidad_territorial=+k;document.querySelector('[data-c=unidad_territorial]').value=k;render()}else{G.sel=k;drawMap();$('#map').scrollIntoView({behavior:'smooth',block:'center'})}};
+ if(f){ficha(+f.dataset.f);if(tab==='fic')focusF(+f.dataset.f);return}if(!r)return;const[t,k]=r.dataset.k.split(':');if(t==='ut'){sel.unidad_territorial=+k;document.querySelector('[data-c=unidad_territorial]').value=k;render()}else{G.sel=k;drawMap();$('#map').scrollIntoView({behavior:'smooth',block:'center'})}};
+$('#out').onmouseover=e=>{const f=e.target.closest('tr[data-f]');if(f&&tab==='fic')focusF(+f.dataset.f,1)};
 $('#out').onchange=e=>{if(e.target.id==='gby'){G.by=e.target.value;render()}if(e.target.id==='ggeo'){G.geo=e.target.value;render()}};
 /* ---------- reportes ---------- */
 var CSS='body{font-family:Calibri,Arial,sans-serif;color:#0f172a}h1{color:#0b1f47}h2{color:#1d4ed8;border-bottom:2px solid #f59e0b;font-size:13pt}table{border-collapse:collapse}th,td{border:1px solid #94a3b8;padding:3px 7px;font-size:10pt}th{background:#dbe8f7}';
